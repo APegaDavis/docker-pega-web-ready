@@ -81,9 +81,11 @@ ENV JDBC_DRIVER_URI=''
 ENV JDBC_MAX_ACTIVE=75 \
     JDBC_MIN_IDLE=3 \
     JDBC_MAX_IDLE=25 \
-    JDBC_MAX_WAIT=30000 \
-    JDBC_INITIAL_SIZE=4 \
-    JDBC_CONNECTION_PROPERTIES=''
+    JDBC_MAX_WAIT=10000 \
+    JDBC_INITIAL_SIZE=0 \
+    JDBC_CONNECTION_PROPERTIES='' \
+    JDBC_TIME_BETWEEN_EVICTIONS=30000 \
+    JDBC_MIN_EVICTABLE_IDLE_TIME=60000
 
 # Provide variables for the name of the rules, data, and customerdata schemas
 ENV RULES_SCHEMA=rules \
@@ -95,8 +97,7 @@ ENV PEGA_DIAGNOSTIC_USER='' \
     PEGA_DIAGNOSTIC_PASSWORD=''
 
 # Parameterize variables to customize the tomcat runtime
-ENV MAX_THREADS="300" \
-    JAVA_OPTS="" \
+ENV JAVA_OPTS="" \
     MAX_HEAP="4096m" \
     INITIAL_HEAP="2048m" \
     INDEX_DIRECTORY="NONE" \
@@ -142,7 +143,7 @@ RUN  mkdir -p /opt/pega/kafkadata && \
 
 # Set up dir for prometheus lib
 RUN mkdir -p /opt/pega/prometheus && \
-    curl -sL -o /opt/pega/prometheus/jmx_prometheus_javaagent.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.15.0/jmx_prometheus_javaagent-0.15.0.jar && \
+    curl -sL -o /opt/pega/prometheus/jmx_prometheus_javaagent.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar && \
     chgrp -R 0 /opt/pega/prometheus && \
     chmod -R g+rw /opt/pega/prometheus && \
     chown -R pegauser /opt/pega/prometheus && \
