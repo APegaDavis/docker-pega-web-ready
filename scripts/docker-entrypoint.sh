@@ -246,33 +246,30 @@ else
       exit 1
     fi
 
-    pushd /vault/bin
-    # Autogenerate some values
-    VAULT_PW=$($RANDOM | md5sum | head -c 20)
-    SALT=$($RANDOM | md5sum | head -c 20)
+    pushd $CATALINA_HOME/bin
+      # Autogenerate some values
+      VAULT_PW=$(echo $RANDOM | md5sum | head -c 20)
+      SALT=$(echo $RANDOM | md5sum | head -c 8)
 
-    # Hack to fix vault's default classpath handling
-    export VAULT_CLASSPATH=$CATALINA_HOME/bin/tomcat-juli.jar:$CATALINA_HOME/lib/tomcat-util.jar
+      # Setup Tomcat's property source to use Vault
+      echo "org.apache.tomcat.util.digester.PROPERTY_SOURCE=org.apache.tomcat.vault.util.PropertySourceVault" >> $CATALINA_HOME/conf/catalina.properties
+      echo "org.apache.tomcat.util.digester.REPLACE_SYSTEM_PROPERTIES=true" >> $CATALINA_HOME/conf/catalina.properties
 
-    # Setup Tomcat's property source to use Vault
-    echo "org.apache.tomcat.util.digester.PROPERTY_SOURCE=org.apache.tomcat.vault.util.PropertySourceVault" >> $CATALINA_HOME/conf/catalina.properties
-    echo "org.apache.tomcat.util.digester.REPLACE_SYSTEM_PROPERTIES=true" >> $CATALINA_HOME/conf/catalina.properties
+      # Create a keystore for the Vault -- this warns about JCEKS and suggests using PKCS12, but tomcat-vault only supports JCEKS, we might want to submit a PR
+      keytool -genseckey -keystore /vault/vault.keystore -alias pega  -storetype jceks -keyalg AES -keysize 128 -storepass $VAULT_PW -keypass $VAULT_PW -validity 730
 
-    # Create a keystore for the Vault
-    keytool -genseckey -keystore /vault/vault.keystore -alias pega  -storetype jceks -keyalg AES -keysize 128 -storepass $VAULT_PW -keypass $VAULT_PW -validity 730
 
-    # Initialize the Vault and save vault.properties
-    # Do this in $() because Vault displays all the sensitive information related to the keystore...
-    ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 44 --salt $SALT -g $CATALINA_HOME/conf/vault.properties
+      # Initialize the Vault and save vault.properties
+      # Vault requires full path for the --keystore param
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 44 --salt $SALT -g $CATALINA_HOME/conf/vault.properties --skip-summary
 
-    # Store db credentials
-    ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute user --sec-attr $SECRET_DB_USERNAME
-    ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute password --sec-attr $SECRET_DB_PASSWORD
+      # Store db credentials
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute user --sec-attr $SECRET_DB_USERNAME --skip-summary
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute password --sec-attr $SECRET_DB_PASSWORD --skip-summary
 
-    # Export creds so they are picked up by dockerize
-    export SECRET_DB_USERNAME="\${VAULT::db::user::}"
-    export SECRET_DB_PASSWORD="\${VAULT::db::password::}"
-
+      # Export creds so they are picked up by dockerize
+      export SECRET_DB_USERNAME="\${VAULT::db::user::}"
+      export SECRET_DB_PASSWORD="\${VAULT::db::password::}"
     popd
 
   echo "No context.xml was specified in ${context_xml}.  Generating from templates."
