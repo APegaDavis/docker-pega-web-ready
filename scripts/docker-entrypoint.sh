@@ -246,6 +246,32 @@ else
       exit 1
     fi
 
+    pushd $CATALINA_HOME/bin
+      # Autogenerate some values
+      VAULT_PW=$(echo $RANDOM | md5sum | head -c 20)
+      SALT=$(echo $RANDOM | md5sum | head -c 8)
+
+      # Setup Tomcat's property source to use Vault
+      echo "org.apache.tomcat.util.digester.PROPERTY_SOURCE=org.apache.tomcat.vault.util.PropertySourceVault" >> $CATALINA_HOME/conf/catalina.properties
+      echo "org.apache.tomcat.util.digester.REPLACE_SYSTEM_PROPERTIES=true" >> $CATALINA_HOME/conf/catalina.properties
+
+      # Create a keystore for the Vault -- this warns about JCEKS and suggests using PKCS12, but tomcat-vault only supports JCEKS, we might want to submit a PR
+      keytool -genseckey -keystore /vault/vault.keystore -alias pega  -storetype jceks -keyalg AES -keysize 128 -storepass $VAULT_PW -keypass $VAULT_PW -validity 730
+
+
+      # Initialize the Vault and save vault.properties
+      # Vault requires full path for the --keystore param
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 44 --salt $SALT -g $CATALINA_HOME/conf/vault.properties --skip-summary
+
+      # Store db credentials
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute user --sec-attr $SECRET_DB_USERNAME --skip-summary
+      ./vault.sh --keystore /vault/vault.keystore --keystore-password $VAULT_PW --alias pega --enc-dir /vault/ --iteration 120 --salt $SALT --vault-block db --attribute password --sec-attr $SECRET_DB_PASSWORD --skip-summary
+
+      # Export creds so they are picked up by dockerize
+      export SECRET_DB_USERNAME="\${VAULT::db::user::}"
+      export SECRET_DB_PASSWORD="\${VAULT::db::password::}"
+    popd
+
   echo "No context.xml was specified in ${context_xml}.  Generating from templates."
     if [ -e ${config_root}/context.xml.tmpl ] ; then
       cp ${config_root}/context.xml.tmpl ${CATALINA_HOME}/conf/context.xml.tmpl
@@ -275,7 +301,7 @@ rm ${CATALINA_HOME}/conf/context.xml.tmpl
 rm ${CATALINA_HOME}/conf/tomcat-users.xml.tmpl
 
 
-unset DB_USERNAME DB_PASSWORD SECRET_DB_USERNAME SECRET_DB_PASSWORD CASSANDRA_USERNAME CASSANDRA_PASSWORD SECRET_CASSANDRA_USERNAME SECRET_CASSANDRA_PASSWORD PEGA_DIAGNOSTIC_USER PEGA_DIAGNOSTIC_PASSWORD SECRET_PEGA_DIAGNOSTIC_USER SECRET_PEGA_DIAGNOSTIC_PASSWORD PEGA_APP_CONTEXT_ROOT HZ_CS_AUTH_USERNAME SECRET_HZ_CS_AUTH_USERNAME HZ_CS_AUTH_PASSWORD SECRET_HZ_CS_AUTH_PASSWORD CASSANDRA_TRUSTSTORE_PASSWORD SECRET_CASSANDRA_TRUSTSTORE_PASSWORD CASSANDRA_KEYSTORE_PASSWORD SECRET_CASSANDRA_KEYSTORE_PASSWORD
+unset DB_USERNAME DB_PASSWORD SECRET_DB_USERNAME SECRET_DB_PASSWORD CASSANDRA_USERNAME CASSANDRA_PASSWORD SECRET_CASSANDRA_USERNAME SECRET_CASSANDRA_PASSWORD PEGA_DIAGNOSTIC_USER PEGA_DIAGNOSTIC_PASSWORD SECRET_PEGA_DIAGNOSTIC_USER SECRET_PEGA_DIAGNOSTIC_PASSWORD PEGA_APP_CONTEXT_ROOT HZ_CS_AUTH_USERNAME SECRET_HZ_CS_AUTH_USERNAME HZ_CS_AUTH_PASSWORD SECRET_HZ_CS_AUTH_PASSWORD CASSANDRA_TRUSTSTORE_PASSWORD SECRET_CASSANDRA_TRUSTSTORE_PASSWORD CASSANDRA_KEYSTORE_PASSWORD SECRET_CASSANDRA_KEYSTORE_PASSWORD VAULT_PW SALT
 
 unset pega_root lib_root config_root
 

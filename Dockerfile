@@ -66,7 +66,6 @@ RUN mkdir -p /opt/pega/streamvol && \
     chmod -R g+rw /opt/pega/streamvol && \
     chown -R pegauser /opt/pega/streamvol
 
-
 # Set up an empty JDBC URL which will, if set to a non-empty value, be used in preference
 # to the "constructed" JDBC URL
 ENV JDBC_URL='' \
@@ -157,6 +156,16 @@ COPY tomcat-webapps ${CATALINA_HOME}/webapps/
 COPY tomcat-bin ${CATALINA_HOME}/bin/
 COPY tomcat-conf ${CATALINA_HOME}/conf/
 COPY scripts /scripts
+
+# Create directory for vault
+RUN mkdir -p /vault && \
+    chgrp -R 0 /vault && \
+    chmod 770 /vault && \
+    chown -R pegauser /vault
+
+# Copy in vault-related jars and scripts
+COPY lib/tomcat-vault.jar /usr/local/tomcat/lib/
+COPY bin/vault.sh /usr/local/tomcat/bin/
 
 #Installing dockerize for generating config files using templates
 RUN curl -sL https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz | tar zxf - -C /bin/
