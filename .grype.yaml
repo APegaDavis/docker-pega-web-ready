@@ -32,3 +32,11 @@ ignore:
   - vulnerability: CVE-2025-58188
   - vulnerability: CVE-2025-61723
   - vulnerability: CVE-2025-61725
+
+  # https://nvd.nist.gov/vuln/detail/CVE-2025-8885
+  # Severity: Medium
+  # Uncontrolled resource consumption issue in bc-fips.  Waiting to confirm if patched version is FIPS approved
+  # Original analysis: 2026-02-24
+  # Last reviewed: 2026-02-24
+  # Next review due: 2026-05-24
+  - vulnerability: GHSA-67mf-3cr5-8w23
